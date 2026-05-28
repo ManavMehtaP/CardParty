@@ -105,10 +105,13 @@ io.on('connection', (socket) => {
     const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
     socket.join(gameId);
 
-    io.to(gameId).emit('waitingUpdate', {
-      count: gamePlayers.length,
-      players: gamePlayers.map(p => p.name),
-      isHost: true
+    // Send waiting update to all players in the game
+    gamePlayers.forEach(p => {
+      p.socket.emit('waitingUpdate', {
+        count: gamePlayers.length,
+        players: gamePlayers.map(pl => pl.name),
+        isHost: gameHosts[gameId] === p.id
+      });
     });
   });
 
@@ -124,12 +127,13 @@ io.on('connection', (socket) => {
     const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
     socket.join(gameId);
 
-    const isHost = gameHosts[gameId] === socket.id;
-
-    io.to(gameId).emit('waitingUpdate', {
-      count: gamePlayers.length,
-      players: gamePlayers.map(p => p.name),
-      isHost: isHost
+    // Send waiting update to all players in the game
+    gamePlayers.forEach(p => {
+      p.socket.emit('waitingUpdate', {
+        count: gamePlayers.length,
+        players: gamePlayers.map(pl => pl.name),
+        isHost: gameHosts[gameId] === p.id
+      });
     });
   });
 
@@ -234,10 +238,14 @@ io.on('connection', (socket) => {
     }
     
     const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
-    io.to(gameId).emit('waitingUpdate', {
-      count: gamePlayers.length,
-      players: gamePlayers.map(p => p.name),
-      isHost: gameHosts[gameId] === socket.id
+    
+    // Send waiting update to all remaining players
+    gamePlayers.forEach(p => {
+      p.socket.emit('waitingUpdate', {
+        count: gamePlayers.length,
+        players: gamePlayers.map(pl => pl.name),
+        isHost: gameHosts[gameId] === p.id
+      });
     });
   });
   
