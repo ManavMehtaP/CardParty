@@ -14,7 +14,7 @@ services:
     env: static
     plan: free
     buildCommand: cd frontend && npm install && npm run build
-    publishDir: frontend/dist
+    staticPublishPath: frontend/dist
     envVars:
       - key: VITE_SOCKET_URL
         value: https://crazy-eights-backend.onrender.com
