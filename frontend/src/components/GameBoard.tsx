@@ -90,7 +90,7 @@ function GameBoard({ game, playerName, onPlayCard, onDrawCard }: GameBoardProps)
 
       {/* Other Players */}
       <div className="flex justify-center gap-4 mb-6 flex-wrap">
-        {otherPlayers.map((player, index) => {
+        {otherPlayers.map((player) => {
           const isCurrentTurn = game.players[game.currentPlayerIndex]?.id === player.id
           return (
             <div
