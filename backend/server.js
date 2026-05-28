@@ -17,6 +17,7 @@ const io = new Server(server, {
 // Game state
 const games = {};
 const waitingPlayers = {};
+const gameHosts = {};
 
 // Card deck creation
 function createDeck() {
@@ -91,7 +92,27 @@ function calculateScore(hand) {
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
   
-  // Join or create game
+  // Host game
+  socket.on('hostGame', ({ name, gameId }) => {
+    waitingPlayers[socket.id] = {
+      id: socket.id,
+      name,
+      gameId,
+      socket
+    };
+    gameHosts[gameId] = socket.id;
+
+    const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
+    socket.join(gameId);
+
+    io.to(gameId).emit('waitingUpdate', {
+      count: gamePlayers.length,
+      players: gamePlayers.map(p => p.name),
+      isHost: true
+    });
+  });
+
+  // Join game
   socket.on('joinGame', ({ name, gameId }) => {
     waitingPlayers[socket.id] = {
       id: socket.id,
@@ -99,35 +120,40 @@ io.on('connection', (socket) => {
       gameId,
       socket
     };
-    
-    // Check if game can start (2-4 players)
+
+    const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
+    socket.join(gameId);
+
+    const isHost = gameHosts[gameId] === socket.id;
+
+    io.to(gameId).emit('waitingUpdate', {
+      count: gamePlayers.length,
+      players: gamePlayers.map(p => p.name),
+      isHost: isHost
+    });
+  });
+
+  // Start game (host only)
+  socket.on('startGame', ({ gameId }) => {
+    if (gameHosts[gameId] !== socket.id) return;
+
     const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
     
     if (gamePlayers.length >= 2 && gamePlayers.length <= 4) {
-      // Check if all players are ready (simple implementation: start when 2-4 players join)
-      if (gamePlayers.length >= 2) {
-        const game = initGame(gameId);
-        gamePlayers.forEach(p => {
-          p.socket.join(gameId);
-          p.socket.emit('gameStarted', {
-            game: {
-              ...game,
-              players: game.players.map(pl => ({
-                ...pl,
-                hand: pl.id === p.id ? pl.hand : pl.hand.map(() => ({ hidden: true }))
-              }))
-            }
-          });
+      const game = initGame(gameId);
+      gamePlayers.forEach(p => {
+        p.socket.emit('gameStarted', {
+          game: {
+            ...game,
+            players: game.players.map(pl => ({
+              ...pl,
+              hand: pl.id === p.id ? pl.hand : pl.hand.map(() => ({ hidden: true }))
+            }))
+          }
         });
-        io.to(gameId).emit('gameUpdate', game);
-      }
+      });
+      io.to(gameId).emit('gameUpdate', game);
     }
-    
-    // Send waiting players count
-    io.to(gameId).emit('waitingUpdate', {
-      count: gamePlayers.length,
-      players: gamePlayers.map(p => p.name)
-    });
   });
   
   // Play a card
@@ -201,17 +227,30 @@ io.on('connection', (socket) => {
   // Leave game
   socket.on('leaveGame', ({ gameId }) => {
     delete waitingPlayers[socket.id];
+    
+    // If host leaves, remove host record
+    if (gameHosts[gameId] === socket.id) {
+      delete gameHosts[gameId];
+    }
+    
     const gamePlayers = Object.values(waitingPlayers).filter(p => p.gameId === gameId);
     io.to(gameId).emit('waitingUpdate', {
       count: gamePlayers.length,
-      players: gamePlayers.map(p => p.name)
+      players: gamePlayers.map(p => p.name),
+      isHost: gameHosts[gameId] === socket.id
     });
   });
   
   // Disconnect
   socket.on('disconnect', () => {
     console.log('Player disconnected:', socket.id);
+    const playerGameId = waitingPlayers[socket.id]?.gameId;
     delete waitingPlayers[socket.id];
+    
+    // If host disconnects, remove host record
+    if (playerGameId && gameHosts[playerGameId] === socket.id) {
+      delete gameHosts[playerGameId];
+    }
     
     // Handle game disconnection
     Object.keys(games).forEach(gameId => {

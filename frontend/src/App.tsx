@@ -30,6 +30,7 @@ function App() {
   const [game, setGame] = useState<Game | null>(null)
   const [waitingCount, setWaitingCount] = useState(0)
   const [waitingPlayers, setWaitingPlayers] = useState<string[]>([])
+  const [isHost, setIsHost] = useState(false)
   const [gameStatus, setGameStatus] = useState<'lobby' | 'waiting' | 'playing' | 'finished'>('lobby')
   const [winner, setWinner] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,9 +54,10 @@ function App() {
         setGame(updatedGame)
       })
 
-      newSocket.on('waitingUpdate', ({ count, players }) => {
+      newSocket.on('waitingUpdate', ({ count, players, isHost }) => {
         setWaitingCount(count)
         setWaitingPlayers(players)
+        setIsHost(isHost || false)
       })
 
       newSocket.on('gameEnded', ({ game, winner }) => {
@@ -78,12 +80,29 @@ function App() {
     }
   }, [])
 
+  const handleHostGame = (name: string, gameId: string) => {
+    setPlayerName(name)
+    setGameId(gameId)
+    setIsHost(true)
+    if (socket) {
+      socket.emit('hostGame', { name, gameId })
+      setGameStatus('waiting')
+    }
+  }
+
   const handleJoinGame = (name: string, gameId: string) => {
     setPlayerName(name)
     setGameId(gameId)
+    setIsHost(false)
     if (socket) {
       socket.emit('joinGame', { name, gameId })
       setGameStatus('waiting')
+    }
+  }
+
+  const handleStartGame = () => {
+    if (socket && isHost) {
+      socket.emit('startGame', { gameId })
     }
   }
 
@@ -107,7 +126,7 @@ function App() {
         </div>
       )}
       {gameStatus === 'lobby' && (
-        <Lobby onJoinGame={handleJoinGame} />
+        <Lobby onHostGame={handleHostGame} onJoinGame={handleJoinGame} />
       )}
       
       {gameStatus === 'waiting' && (
@@ -115,11 +134,14 @@ function App() {
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <div className="flex items-center justify-center mb-6">
               <span className="text-4xl mr-3">👥</span>
-              <h1 className="text-3xl font-bold text-gray-800">Waiting for Players</h1>
+              <h1 className="text-3xl font-bold text-gray-800">
+                {isHost ? 'Hosting Game' : 'Waiting for Players'}
+              </h1>
             </div>
             <div className="text-center mb-6">
               <p className="text-gray-600 mb-2">Game ID: <span className="font-mono font-bold text-green-600">{gameId}</span></p>
               <p className="text-gray-600">Players joined: <span className="font-bold">{waitingCount}/4</span></p>
+              {isHost && <p className="text-sm text-green-600 mt-1">🏠 You are the host</p>}
             </div>
             {waitingPlayers.length > 0 && (
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
@@ -129,30 +151,66 @@ function App() {
                     <li key={player} className="text-gray-600 flex items-center">
                       <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                       {player}
+                      {isHost && player === playerName && <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">(Host)</span>}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            <div className="flex items-center justify-center mb-6">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-              <span className="ml-3 text-gray-600">Waiting for more players...</span>
-            </div>
-            <button
-              onClick={() => {
-                setGameStatus('lobby')
-                setGameId('')
-                setPlayerName('')
-                setWaitingCount(0)
-                setWaitingPlayers([])
-                if (socket) {
-                  socket.emit('leaveGame', { gameId })
-                }
-              }}
-              className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              Leave Game
-            </button>
+            {isHost ? (
+              <div className="space-y-3">
+                {waitingCount >= 2 ? (
+                  <button
+                    onClick={handleStartGame}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                  >
+                    🎮 Start Game
+                  </button>
+                ) : (
+                  <div className="text-center text-gray-600 py-3">
+                    Need at least 2 players to start
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setGameStatus('lobby')
+                    setGameId('')
+                    setPlayerName('')
+                    setWaitingCount(0)
+                    setWaitingPlayers([])
+                    setIsHost(false)
+                    if (socket) {
+                      socket.emit('leaveGame', { gameId })
+                    }
+                  }}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                >
+                  Leave Game
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <span className="ml-3 text-gray-600">Waiting for host to start game...</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setGameStatus('lobby')
+                    setGameId('')
+                    setPlayerName('')
+                    setWaitingCount(0)
+                    setWaitingPlayers([])
+                    if (socket) {
+                      socket.emit('leaveGame', { gameId })
+                    }
+                  }}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                >
+                  Leave Game
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

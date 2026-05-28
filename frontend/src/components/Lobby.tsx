@@ -1,17 +1,23 @@
 import { useState } from 'react'
 
 interface LobbyProps {
+  onHostGame: (name: string, gameId: string) => void
   onJoinGame: (name: string, gameId: string) => void
 }
 
-function Lobby({ onJoinGame }: LobbyProps) {
+function Lobby({ onHostGame, onJoinGame }: LobbyProps) {
   const [name, setName] = useState('')
   const [gameId, setGameId] = useState('')
+  const [isHosting, setIsHosting] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (name.trim() && gameId.trim()) {
-      onJoinGame(name.trim(), gameId.trim())
+      if (isHosting) {
+        onHostGame(name.trim(), gameId.trim())
+      } else {
+        onJoinGame(name.trim(), gameId.trim())
+      }
     }
   }
 
@@ -35,6 +41,32 @@ function Lobby({ onJoinGame }: LobbyProps) {
         <p className="text-center text-gray-600 mb-6">
           A fun multiplayer card game for 2-4 players
         </p>
+
+        {/* Host/Join Toggle */}
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setIsHosting(true)}
+            className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
+              isHosting
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🏠 Host Game
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsHosting(false)}
+            className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
+              !isHosting
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            👥 Join Game
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -61,7 +93,7 @@ function Lobby({ onJoinGame }: LobbyProps) {
                 value={gameId}
                 onChange={(e) => setGameId(e.target.value.toUpperCase())}
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all font-mono"
-                placeholder="Enter or generate ID"
+                placeholder={isHosting ? "Generate or enter ID" : "Enter Game ID"}
                 required
               />
               <button
@@ -76,10 +108,23 @@ function Lobby({ onJoinGame }: LobbyProps) {
 
           <button
             type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center"
+            className={`w-full font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center ${
+              isHosting
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
-            <span className="mr-2">👥</span>
-            Join Game
+            {isHosting ? (
+              <>
+                <span className="mr-2">🏠</span>
+                Host Game
+              </>
+            ) : (
+              <>
+                <span className="mr-2">👥</span>
+                Join Game
+              </>
+            )}
           </button>
         </form>
 
