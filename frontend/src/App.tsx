@@ -64,7 +64,7 @@ function App() {
         setGameStatus('finished')
       })
 
-      newSocket.on('playerDisconnected', ({ playerId }) => {
+      newSocket.on('playerDisconnected', () => {
         setGameStatus('lobby')
         setGame(null)
       })
@@ -125,8 +125,8 @@ function App() {
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <h3 className="font-semibold text-gray-700 mb-2">Players:</h3>
                 <ul className="space-y-1">
-                  {waitingPlayers.map((player, index) => (
-                    <li key={index} className="text-gray-600 flex items-center">
+                  {waitingPlayers.map((player) => (
+                    <li key={player} className="text-gray-600 flex items-center">
                       <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                       {player}
                     </li>
